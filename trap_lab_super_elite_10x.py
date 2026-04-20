@@ -245,17 +245,17 @@ class TrapLab(QWidget):
         brom_label.setStyleSheet("color: #aaa; font-size: 8pt; margin-top: 4px;")
         l.addWidget(brom_label)
         self._btn(l, "Detect Mode  (BROM vs Preloader)",
-                  lambda: self._mtk_async("DETECT", "printinfo", timeout=30))
+                  lambda: self._mtk_async("DETECT", "gettargetconfig", timeout=30))
         self._btn(l, "Force BROM — crash  (modes 0→2, auto)",
                   lambda: self._mtk_async("FORCE BROM", "crash", timeout=60))
         self._btn(l, "Force BROM — watchdog reset  (mode 3, reliable)",
                   lambda: self._mtk_async("FORCE BROM WDT", "crash --mode 3", timeout=60))
         self._btn(l, "Force BROM — preloader + crash  (--crash flag)",
-                  lambda: self._mtk_async("FORCE BROM FLAG", "printinfo --crash", timeout=60))
+                  lambda: self._mtk_async("FORCE BROM FLAG", "gettargetconfig --crash", timeout=60))
         self._sep(l)
 
         # ── Info / Partition ──────────────────────────────────────
-        self._btn(l, "MTK — Print Info",      lambda: self._mtk_async("INFO",  "printinfo", timeout=30))
+        self._btn(l, "MTK — Print Info",      lambda: self._mtk_async("INFO",  "gettargetconfig", timeout=30))
         self._btn(l, "MTK — Print GPT",       lambda: self._mtk_async("GPT",   "printgpt",  timeout=30))
         self._btn(l, "MTK — Logs",            lambda: self._mtk_async("LOGS",  "logs",       timeout=30))
         self._btn(l, "MTK — Dump Partitions", lambda: self._mtk_async("DUMP",  "rl ./dump",  timeout=180))
