@@ -490,7 +490,7 @@ class UsbClass(DeviceClass):
             sz = min(buflen, bytestoread)
             try:
                 if fast:
-                    rlen = epr(buffer, timeout)
+                    rlen = epr(buffer, self.timeout)
                     if rlen > sz:
                         self.warning("Buffer overflow")
                         q.put(buffer[rlen:])
@@ -547,7 +547,7 @@ class UsbClass(DeviceClass):
         while len(res) < max_xml_data_length:
             try:
                 if self.fast:
-                    rlen = epr(buffer, timeout)
+                    rlen = epr(buffer, self.timeout)
                     extend(buffer[:rlen])
                 else:
                     extend(epr(w_max_packet_size))
