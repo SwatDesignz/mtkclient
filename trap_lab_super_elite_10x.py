@@ -221,11 +221,12 @@ class TrapLab(QWidget):
         self.monitor.start()
 
     def _build_tabs(self):
-        self.tabs.addTab(self._dashboard_tab(), "📡  Dashboard")
-        self.tabs.addTab(self._mtk_tab(),       "🔧  MTK")
-        self.tabs.addTab(self._frp_da_tab(),    "🔓  FRP — DA")
-        self.tabs.addTab(self._tools_tab(),     "🛠  Tools")
-        self.tabs.addTab(self._info_tab(),      "ℹ️  Info")
+        self.tabs.addTab(self._dashboard_tab(),  "📡  Dashboard")
+        self.tabs.addTab(self._universal_tab(),  "🌐  Universal")
+        self.tabs.addTab(self._mtk_tab(),        "🔧  MTK")
+        self.tabs.addTab(self._frp_da_tab(),     "🔓  FRP — DA")
+        self.tabs.addTab(self._tools_tab(),      "🛠  Tools")
+        self.tabs.addTab(self._info_tab(),       "ℹ️  Info")
 
     def _dashboard_tab(self):
         tab, l = self._tab()
@@ -236,6 +237,115 @@ class TrapLab(QWidget):
         self._btn(l, "ADB Shell — df -h", lambda: self._exec("DF",       "adb shell df -h"))
         l.addStretch()
         return tab
+
+    def _universal_tab(self):
+        tab, l = self._tab()
+        note = QLabel(
+            "ADB / Fastboot — works on any Android (Samsung, Xiaomi, etc.)\n"
+            "ADB FRP requires USB debugging enabled on the device."
+        )
+        note.setStyleSheet("color: #aaa; font-size: 9pt;")
+        note.setWordWrap(True)
+        l.addWidget(note)
+
+        # ── ADB ───────────────────────────────────────────────────
+        adb_label = QLabel("ADB")
+        adb_label.setStyleSheet("color: #aaa; font-size: 8pt; margin-top: 6px;")
+        l.addWidget(adb_label)
+        self._btn(l, "ADB — Detect Device",
+                  lambda: self._exec("ADB", "adb devices -l"))
+        self._btn(l, "ADB — Device Info  (model / Android ver)",
+                  lambda: self._exec("ADB INFO",
+                                     'adb shell "getprop ro.product.model; '
+                                     'getprop ro.build.version.release; '
+                                     'getprop ro.product.manufacturer"'))
+        self._btn(l, "ADB — FRP Clear  (USB debug on, own device)",
+                  self._adb_frp_clear)
+        self._btn(l, "ADB — Reboot to Fastboot",
+                  lambda: self._exec("ADB→FASTBOOT", "adb reboot bootloader"))
+        self._btn(l, "ADB — Reboot to Recovery",
+                  lambda: self._exec("ADB→RECOVERY", "adb reboot recovery"))
+        self._sep(l)
+
+        # ── Fastboot ──────────────────────────────────────────────
+        fb_label = QLabel("Fastboot")
+        fb_label.setStyleSheet("color: #aaa; font-size: 8pt; margin-top: 4px;")
+        l.addWidget(fb_label)
+        self._btn(l, "Fastboot — Detect Device",
+                  lambda: self._exec("FASTBOOT", "fastboot devices"))
+        self._btn(l, "Fastboot — Erase FRP  (unlocked bootloader)",
+                  self._fastboot_erase_frp)
+        self._btn(l, "Fastboot — Reboot",
+                  lambda: self._exec("FASTBOOT REBOOT", "fastboot reboot"))
+        self._sep(l)
+
+        # ── USB Identify ──────────────────────────────────────────
+        self._btn(l, "Identify Connected Device  (VID:PID lookup)",
+                  self._identify_device)
+        l.addStretch()
+        return tab
+
+    def _adb_frp_clear(self):
+        reply = QMessageBox.warning(
+            self, "ADB FRP Clear",
+            "Clear FRP via ADB settings.\n\n"
+            "Requires USB debugging to be ON.\n"
+            "Own device only. Continue?",
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No,
+        )
+        if reply != QMessageBox.Yes:
+            return
+        cmds = [
+            ("ADB FRP", 'adb shell settings put secure user_setup_complete 1',                       10),
+            ("ADB FRP", 'adb shell settings put global setup_wizard_has_run 1',                      10),
+            ("ADB FRP", "adb shell content delete --uri content://settings/secure "
+                        "--where \"name='user_setup_complete'\"",                                    10),
+            ("ADB FRP", 'adb shell am broadcast -a com.google.android.gms.auth.GOOGLE_SIGN_IN_REQUIRED', 10),
+        ]
+        self._log("ADB FRP", "[RUNNING] clearing FRP via ADB settings")
+        worker = SeqCmdWorker(cmds)
+        worker.step.connect(self._log)
+        worker.start()
+        if not hasattr(self, "_workers"):
+            self._workers = []
+        self._workers.append(worker)
+
+    def _fastboot_erase_frp(self):
+        reply = QMessageBox.warning(
+            self, "Fastboot Erase FRP",
+            "Erase frp partition via fastboot.\n\n"
+            "Device must be in fastboot mode with an UNLOCKED bootloader.\n"
+            "Own device only. Continue?",
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No,
+        )
+        if reply == QMessageBox.Yes:
+            self._exec("FASTBOOT FRP", "fastboot erase frp", timeout=30)
+
+    def _identify_device(self):
+        raw = engine.run("lsusb")
+        lines = [l for l in raw.splitlines() if l.strip()]
+        known = {
+            "0e8d": "MediaTek (MTK)",
+            "04e8": "Samsung",
+            "2717": "Xiaomi",
+            "1ebf": "Huawei",
+            "22d9": "OPPO/Realme",
+            "2d95": "Vivo",
+            "18d1": "Google (Nexus/Pixel)",
+            "1004": "LG",
+            "0bb4": "HTC",
+            "054c": "Sony",
+            "0fce": "Sony Ericsson",
+        }
+        result = []
+        for line in lines:
+            for vid, name in known.items():
+                if f"ID {vid}:" in line:
+                    result.append(f"  → {name}  |  {line.strip()}")
+                    break
+            else:
+                result.append(f"     {line.strip()}")
+        self._log("USB IDENTIFY", "\n".join(result) if result else raw)
 
     def _mtk_tab(self):
         tab, l = self._tab()
