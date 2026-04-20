@@ -239,10 +239,26 @@ class TrapLab(QWidget):
 
     def _mtk_tab(self):
         tab, l = self._tab()
-        self._btn(l, "MTK — Print Info",      lambda: self._mtk("INFO",  "printinfo"))
-        self._btn(l, "MTK — Print GPT",       lambda: self._mtk("GPT",   "printgpt"))
-        self._btn(l, "MTK — Logs",            lambda: self._mtk("LOGS",  "logs"))
-        self._btn(l, "MTK — Dump Partitions", lambda: self._mtk("DUMP",  "rl ./dump", timeout=180))
+
+        # ── BROM / Preloader ──────────────────────────────────────
+        brom_label = QLabel("BROM / Preloader")
+        brom_label.setStyleSheet("color: #aaa; font-size: 8pt; margin-top: 4px;")
+        l.addWidget(brom_label)
+        self._btn(l, "Detect Mode  (BROM vs Preloader)",
+                  lambda: self._mtk_async("DETECT", "printinfo", timeout=30))
+        self._btn(l, "Force BROM — crash  (modes 0→2, auto)",
+                  lambda: self._mtk_async("FORCE BROM", "crash", timeout=60))
+        self._btn(l, "Force BROM — watchdog reset  (mode 3, reliable)",
+                  lambda: self._mtk_async("FORCE BROM WDT", "crash --mode 3", timeout=60))
+        self._btn(l, "Force BROM — preloader + crash  (--crash flag)",
+                  lambda: self._mtk_async("FORCE BROM FLAG", "printinfo --crash", timeout=60))
+        self._sep(l)
+
+        # ── Info / Partition ──────────────────────────────────────
+        self._btn(l, "MTK — Print Info",      lambda: self._mtk_async("INFO",  "printinfo", timeout=30))
+        self._btn(l, "MTK — Print GPT",       lambda: self._mtk_async("GPT",   "printgpt",  timeout=30))
+        self._btn(l, "MTK — Logs",            lambda: self._mtk_async("LOGS",  "logs",       timeout=30))
+        self._btn(l, "MTK — Dump Partitions", lambda: self._mtk_async("DUMP",  "rl ./dump",  timeout=180))
         self._sep(l)
         frp = self._btn(l, "⚠️  FRP Safe Bypass", self._frp_safe)
         frp.setStyleSheet("QPushButton { background: #7a1a1a; color: #fff; }")
@@ -289,7 +305,7 @@ class TrapLab(QWidget):
         )
         if reply == QMessageBox.Yes:
             self._mtk_async(f"DA ERASE [{label}]",
-                            f"e {','.join(partitions)}", timeout=90)
+                            f"e {','.join(partitions)}", timeout=300)
 
     def _frp_da_full(self):
         reply = QMessageBox.warning(
